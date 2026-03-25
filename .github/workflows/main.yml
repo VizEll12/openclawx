@@ -1,0 +1,59 @@
+name: Build OpenClaw iOS Unsigned
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: |
+          cd apps/ios
+          xcodegen generate
+
+      - name: Build Unsigned App
+        run: |
+          cd apps/ios
+          xcodebuild clean build \
+            -project OpenClaw.xcodeproj \
+            -scheme OpenClaw \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            BUILD_DIR=$(PWD)/build
+
+      - name: Package App into IPA
+        run: |
+          cd apps/ios
+          mkdir -p Payload
+          mv build/Release-iphoneos/OpenClaw.app Payload/
+          zip -r OpenClaw-Unsigned.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenClaw-IPA
+          path: apps/ios/OpenClaw-Unsigned.ipa
+          retention-days: 3
